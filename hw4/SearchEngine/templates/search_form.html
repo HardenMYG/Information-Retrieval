@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>南开大学搜索引擎</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        form {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 350px;
+            position: relative;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="submit"] {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        #search-history {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        #search-history li {
+            padding: 10px;
+            cursor: pointer;
+        }
+        #search-history li:hover {
+            background-color: #f4f4f9;
+        }
+        /* 添加联想建议样式 */
+        .suggestions-container {
+            position: relative;
+        }
+        
+        #suggestions {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .suggestion-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .suggestion-query {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>南开大学搜索引擎</h1>
+    <form method="post" action="/search">
+        <div class="suggestions-container">
+            <label for="query">搜索关键词:</label>
+            <input type="text" id="query" name="query" required 
+                   autocomplete="off"
+                   onfocus="toggleSearchHistory()" 
+                   oninput="showSuggestions(this.value)">
+            
+            <!-- 搜索历史 -->
+            <ul id="search-history">
+                {% for query, _, _ in query_logs %}
+                    <li onclick="fillSearchBox('{{ query }}')">{{ query }}</li>
+                {% endfor %}
+            </ul>
+            
+            <!-- 联想建议 -->
+            <div id="suggestions"></div>
+        </div>
+        <br>
+        <input type="submit" value="搜索">
+    </form>
+    
+    <script>
+        // 显示搜索历史
+        function toggleSearchHistory() {
+            const searchBox = document.getElementById('query');
+            const searchHistory = document.getElementById('search-history');
+            
+            if (searchBox.value === '') {
+                searchHistory.style.display = 'block';
+                document.getElementById('suggestions').style.display = 'none';
+            } else {
+                searchHistory.style.display = 'none';
+            }
+        }
+        
+        // 填充搜索框
+        function fillSearchBox(query) {
+            const searchBox = document.getElementById('query');
+            searchBox.value = query;
+            document.getElementById('search-history').style.display = 'none';
+            showSuggestions(query);
+        }
+        
+        // 显示搜索建议
+        function showSuggestions(query) {
+            const searchHistory = document.getElementById('search-history');
+            const suggestionsContainer = document.getElementById('suggestions');
+            
+            if (query.length === 0) {
+                suggestionsContainer.style.display = 'none';
+                searchHistory.style.display = 'block';
+                return;
+            }
+            
+            // 隐藏搜索历史
+            searchHistory.style.display = 'none';
+            
+            if (query.length < 2) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+            
+            fetch(`/suggest?q=${encodeURIComponent(query)}`)
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(suggestions => {
+                    console.log('Received suggestions:', suggestions);
+                    suggestionsContainer.innerHTML = '';
+                    
+                    if (suggestions.length > 0) {
+                        suggestions.forEach(text => {
+                            const item = document.createElement('div');
+                            item.className = 'suggestion-item';
+                            
+                            // 高亮匹配部分
+                            const regex = new RegExp(`(${query})`, 'gi');
+                            const highlighted = text.replace(regex, '<strong>$1</strong>');
+                            
+                            item.innerHTML = `
+                                <div class="suggestion-query">${highlighted}</div>
+                            `;
+                            
+                            item.onclick = () => {
+                                document.getElementById('query').value = text;
+                                suggestionsContainer.style.display = 'none';
+                                document.querySelector('form').submit();
+                            };
+                            suggestionsContainer.appendChild(item);
+                        });
+                        suggestionsContainer.style.display = 'block';
+                    } else {
+                        suggestionsContainer.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching suggestions:', error);
+                });
+        }
+        
+        // 点击页面其他区域隐藏建议
+        document.addEventListener('click', (e) => {
+            const suggestions = document.getElementById('suggestions');
+            const searchHistory = document.getElementById('search-history');
+            
+            if (!e.target.closest('.suggestions-container')) {
+                suggestions.style.display = 'none';
+                searchHistory.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

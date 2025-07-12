@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>搜索结果 - {{ query }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: #fff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        li a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        li a:hover {
+            text-decoration: underline;
+        }
+        p {
+            color: #666;
+        }
+        a[href="/"] {
+            display: inline-block;
+            color: #007BFF;
+            text-decoration: none;
+            margin-top: 20px;
+        }
+        a[href="/"]:hover {
+            text-decoration: underline;
+        }
+        .highlight {
+            background-color: yellow; /* 高亮颜色 */
+        }
+    </style>
+</head>
+<body>
+    <h1>搜索结果 - {{ query }}</h1>
+    {% if results %}
+        <ul>
+            {% for url, title, snippet in results %}
+                <li>
+                    <a href="{{ url }}" target="_blank">
+                        <span id="title-{{ loop.index }}">{{ title }}</span>
+                    </a>
+                    <a href="{{ url_for('snapshot', url=url) }}" target="_blank" style="margin-left: 10px;">网页快照</a>
+                    <p id="snippet-{{ loop.index }}">{{ snippet }}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>未找到相关结果。</p>
+    {% endif %}
+    <a href="/">返回搜索页面</a>
+
+    <script>
+        function highlightQuery(query) {
+            const titles = document.querySelectorAll('span[id^="title-"]');
+            const snippets = document.querySelectorAll('p[id^="snippet-"]');
+            const queries = query.split(' '); // 拆分查询词
+
+            const highlightElements = (elements) => {
+                elements.forEach(element => {
+                    let originalText = element.textContent;
+                    queries.forEach(q => {
+                        const regex = new RegExp(q, 'gi');
+                        originalText = originalText.replace(regex, '<span class="highlight">$&</span>');
+                    });
+                    element.innerHTML = originalText;
+                });
+            };
+
+            highlightElements(titles);
+            highlightElements(snippets);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const query = "{{ query }}";
+            highlightQuery(query);
+        });
+    </script>
+</body>
+</html>
